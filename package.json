@@ -1,20 +1,23 @@
 {
-  "name": "typescript-action",
-  "description": "GitHub Actions TypeScript template",
-  "version": "0.0.0",
-  "author": "",
+  "name": "stagehand-publish-update",
+  "description": "GitHub Action: vend an Expo token from Stagehand, run `eas update --auto`, and report the resulting update group(s) back to Stagehand.",
+  "version": "1.0.0",
+  "author": "Stagehand",
   "type": "module",
   "private": true,
-  "homepage": "https://github.com/actions/typescript-action",
+  "homepage": "https://github.com/stagehand-app/publish-update",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/stagehand-app/publish-update.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/typescript-action/issues"
+    "url": "https://github.com/stagehand-app/publish-update/issues"
   },
   "keywords": [
-    "actions"
+    "actions",
+    "expo",
+    "eas",
+    "stagehand"
   ],
   "exports": {
     ".": "./dist/index.js"
@@ -37,7 +40,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^3.0.0"
+    "@actions/core": "^3.0.0",
+    "@actions/exec": "^1.1.1"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.2",

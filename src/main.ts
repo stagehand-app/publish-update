@@ -1,27 +1,126 @@
 import * as core from '@actions/core'
-import { wait } from './wait.js'
+import { exec, getExecOutput } from '@actions/exec'
 
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
-export async function run(): Promise<void> {
+import {
+  parseEasUpdateJson,
+  postPublishedUpdate,
+  PublishUpdateError,
+  vendExpoToken,
+  VendError
+} from './api-client.js'
+import { detectPackageManager } from './package-manager.js'
+
+const DEFAULT_API_BASE = 'https://api.stagehand.app'
+
+const readInput = (name: string, opts: { required?: boolean } = {}): string => {
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    return core.getInput(name, opts)
+  }
+  const envName = `INPUT_${name.replace(/-/g, '_').toUpperCase()}`
+  const raw = process.env[envName] ?? ''
+  if (opts.required === true && raw.length === 0) {
+    throw new Error(`Input ${name} is required`)
+  }
+  return raw
+}
+
+export const run = async (): Promise<void> => {
+  const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()
+  const apiBase = readInput('stagehand-api-base') || DEFAULT_API_BASE
+  const projectId = readInput('project-id', { required: true })
+  const stagehandToken = readInput('stagehand-token', { required: true })
+  const dryRun = process.env.STAGEHAND_DRY_RUN === 'true'
+
+  const pm = detectPackageManager(workspace)
+  core.info(`Detected package manager: ${pm.name}`)
+
+  await exec(pm.name, [...pm.installArgs], { cwd: workspace })
+
+  let expoToken: string
   try {
-    const ms: string = core.getInput('milliseconds')
+    expoToken = await vendExpoToken({ apiBase, projectId, stagehandToken })
+  } catch (err) {
+    if (err instanceof VendError) {
+      core.setFailed(
+        `Stagehand vending endpoint failed: ${err.message} (code=${err.errorCode ?? 'unknown'})`
+      )
+      return
+    }
+    throw err
+  }
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+  core.setSecret(expoToken)
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+  if (dryRun) {
+    core.info('STAGEHAND_DRY_RUN=true; skipping `eas update --auto`.')
+    return
+  }
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
-  } catch (error) {
-    // Fail the workflow run if an error occurs
-    if (error instanceof Error) core.setFailed(error.message)
+  const eventName = process.env.GITHUB_EVENT_NAME ?? ''
+  const sha = process.env.GITHUB_SHA ?? ''
+  const isDefaultBranch = eventName === 'push'
+
+  const updateOutput = await getExecOutput(
+    'npx',
+    [
+      '--yes',
+      'eas-cli@latest',
+      'update',
+      '--auto',
+      '--non-interactive',
+      '--json'
+    ],
+    { cwd: workspace, env: { ...process.env, EXPO_TOKEN: expoToken } }
+  )
+
+  if (updateOutput.exitCode !== 0) {
+    core.setFailed(
+      `eas update exited with code ${updateOutput.exitCode}: ${updateOutput.stderr}`
+    )
+    return
+  }
+
+  const records = parseEasUpdateJson(updateOutput.stdout)
+  if (records.length === 0) {
+    core.warning(
+      'eas update --json returned no parseable update records; skipping Stagehand publish-update POST.'
+    )
+    return
+  }
+
+  if (sha.length === 0) {
+    core.warning(
+      'GITHUB_SHA env var is empty; skipping Stagehand publish-update POST.'
+    )
+    return
+  }
+
+  for (const record of records) {
+    try {
+      await postPublishedUpdate({
+        apiBase,
+        projectId,
+        stagehandToken,
+        payload: {
+          branch: record.branch,
+          sha,
+          updateGroupId: record.group,
+          runtimeVersion: record.runtimeVersion,
+          platform: record.platform,
+          isDefaultBranch
+        }
+      })
+      core.info(
+        `Recorded update group ${record.group} (${record.platform}) for branch ${record.branch}.`
+      )
+    } catch (err) {
+      if (err instanceof PublishUpdateError) {
+        core.setFailed(
+          `Stagehand publish-update POST failed: ${err.message} (code=${err.errorCode ?? 'unknown'})`
+        )
+        return
+      }
+      throw err
+    }
   }
 }

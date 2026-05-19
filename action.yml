@@ -1,23 +1,22 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: 'Stagehand: publish update'
+description: Vend a scoped EXPO_TOKEN from Stagehand, run `eas update --auto`, and report the resulting update group(s) back to Stagehand.
+author: Stagehand
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: upload-cloud
+  color: purple
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  project-id:
+    description: Stagehand project UUID this workflow publishes for.
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: Your output description here
+  stagehand-token:
+    description: Stagehand project token used to vend an EXPO_TOKEN and POST the resulting update.
+    required: true
+  stagehand-api-base:
+    description: Override the Stagehand API base URL. Defaults to https://api.stagehand.app.
+    required: false
+    default: https://api.stagehand.app
 
 runs:
   using: node24
