@@ -3,7 +3,8 @@ import os__default from 'os';
 import 'crypto';
 import * as fs from 'fs';
 import fs__default, { promises } from 'fs';
-import path from 'path';
+import * as path from 'path';
+import path__default from 'path';
 import http from 'http';
 import https from 'https';
 import 'net';
@@ -32,6 +33,7 @@ import require$$1$5 from 'node:dns';
 import require$$5$3 from 'string_decoder';
 import child from 'child_process';
 import require$$6$1 from 'timers';
+import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -154,6 +156,22 @@ function escapeProperty(s) {
         .replace(/\n/g, '%0A')
         .replace(/:/g, '%3A')
         .replace(/,/g, '%2C');
+}
+
+// For internal use, subject to change.
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function issueFileCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
+    }
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
+    }
+    fs.appendFileSync(filePath, `${toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
 }
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
@@ -27956,6 +27974,20 @@ function setSecret(secret) {
     issueCommand('add-mask', {}, secret);
 }
 /**
+ * Prepends inputPath to the PATH (for this action and future actions)
+ * @param inputPath
+ */
+function addPath(inputPath) {
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        issueFileCommand('PATH', inputPath);
+    }
+    else {
+        issueCommand('add-path', {}, inputPath);
+    }
+    process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
+}
+/**
  * Gets the value of an input.
  * Unless trimWhitespace is set to false in InputOptions, the value is also trimmed.
  * Returns an empty string if the value is not defined.
@@ -28056,7 +28088,7 @@ function requireIoUtil () {
 		Object.defineProperty(exports$1, "__esModule", { value: true });
 		exports$1.getCmdPath = exports$1.tryGetExecutablePath = exports$1.isRooted = exports$1.isDirectory = exports$1.exists = exports$1.READONLY = exports$1.UV_FS_O_EXLOCK = exports$1.IS_WINDOWS = exports$1.unlink = exports$1.symlink = exports$1.stat = exports$1.rmdir = exports$1.rm = exports$1.rename = exports$1.readlink = exports$1.readdir = exports$1.open = exports$1.mkdir = exports$1.lstat = exports$1.copyFile = exports$1.chmod = void 0;
 		const fs = __importStar(fs__default);
-		const path$1 = __importStar(path);
+		const path = __importStar(path__default);
 		_a = fs.promises
 		// export const {open} = 'fs'
 		, exports$1.chmod = _a.chmod, exports$1.copyFile = _a.copyFile, exports$1.lstat = _a.lstat, exports$1.mkdir = _a.mkdir, exports$1.open = _a.open, exports$1.readdir = _a.readdir, exports$1.readlink = _a.readlink, exports$1.rename = _a.rename, exports$1.rm = _a.rm, exports$1.rmdir = _a.rmdir, exports$1.stat = _a.stat, exports$1.symlink = _a.symlink, exports$1.unlink = _a.unlink;
@@ -28125,7 +28157,7 @@ function requireIoUtil () {
 		        if (stats && stats.isFile()) {
 		            if (exports$1.IS_WINDOWS) {
 		                // on Windows, test for valid extension
-		                const upperExt = path$1.extname(filePath).toUpperCase();
+		                const upperExt = path.extname(filePath).toUpperCase();
 		                if (extensions.some(validExt => validExt.toUpperCase() === upperExt)) {
 		                    return filePath;
 		                }
@@ -28154,11 +28186,11 @@ function requireIoUtil () {
 		                if (exports$1.IS_WINDOWS) {
 		                    // preserve the case of the actual file (since an extension was appended)
 		                    try {
-		                        const directory = path$1.dirname(filePath);
-		                        const upperName = path$1.basename(filePath).toUpperCase();
+		                        const directory = path.dirname(filePath);
+		                        const upperName = path.basename(filePath).toUpperCase();
 		                        for (const actualName of yield exports$1.readdir(directory)) {
 		                            if (upperName === actualName.toUpperCase()) {
-		                                filePath = path$1.join(directory, actualName);
+		                                filePath = path.join(directory, actualName);
 		                                break;
 		                            }
 		                        }
@@ -28246,7 +28278,7 @@ function requireIo () {
 	Object.defineProperty(io, "__esModule", { value: true });
 	io.findInPath = io.which = io.mkdirP = io.rmRF = io.mv = io.cp = void 0;
 	const assert_1 = require$$5$4;
-	const path$1 = __importStar(path);
+	const path = __importStar(path__default);
 	const ioUtil = __importStar(requireIoUtil());
 	/**
 	 * Copies a file or folder.
@@ -28266,7 +28298,7 @@ function requireIo () {
 	        }
 	        // If dest is an existing directory, should copy inside.
 	        const newDest = destStat && destStat.isDirectory() && copySourceDirectory
-	            ? path$1.join(dest, path$1.basename(source))
+	            ? path.join(dest, path.basename(source))
 	            : dest;
 	        if (!(yield ioUtil.exists(source))) {
 	            throw new Error(`no such file or directory: ${source}`);
@@ -28281,7 +28313,7 @@ function requireIo () {
 	            }
 	        }
 	        else {
-	            if (path$1.relative(source, newDest) === '') {
+	            if (path.relative(source, newDest) === '') {
 	                // a file cannot be copied to itself
 	                throw new Error(`'${newDest}' and '${source}' are the same file`);
 	            }
@@ -28303,7 +28335,7 @@ function requireIo () {
 	            let destExists = true;
 	            if (yield ioUtil.isDirectory(dest)) {
 	                // If dest is directory copy src into dest
-	                dest = path$1.join(dest, path$1.basename(source));
+	                dest = path.join(dest, path.basename(source));
 	                destExists = yield ioUtil.exists(dest);
 	            }
 	            if (destExists) {
@@ -28315,7 +28347,7 @@ function requireIo () {
 	                }
 	            }
 	        }
-	        yield mkdirP(path$1.dirname(dest));
+	        yield mkdirP(path.dirname(dest));
 	        yield ioUtil.rename(source, dest);
 	    });
 	}
@@ -28410,7 +28442,7 @@ function requireIo () {
 	        // build the list of extensions to try
 	        const extensions = [];
 	        if (ioUtil.IS_WINDOWS && process.env['PATHEXT']) {
-	            for (const extension of process.env['PATHEXT'].split(path$1.delimiter)) {
+	            for (const extension of process.env['PATHEXT'].split(path.delimiter)) {
 	                if (extension) {
 	                    extensions.push(extension);
 	                }
@@ -28425,7 +28457,7 @@ function requireIo () {
 	            return [];
 	        }
 	        // if any path separators, return empty
-	        if (tool.includes(path$1.sep)) {
+	        if (tool.includes(path.sep)) {
 	            return [];
 	        }
 	        // build the list of directories
@@ -28436,7 +28468,7 @@ function requireIo () {
 	        // across platforms.
 	        const directories = [];
 	        if (process.env.PATH) {
-	            for (const p of process.env.PATH.split(path$1.delimiter)) {
+	            for (const p of process.env.PATH.split(path.delimiter)) {
 	                if (p) {
 	                    directories.push(p);
 	                }
@@ -28445,7 +28477,7 @@ function requireIo () {
 	        // find all matches
 	        const matches = [];
 	        for (const directory of directories) {
-	            const filePath = yield ioUtil.tryGetExecutablePath(path$1.join(directory, tool), extensions);
+	            const filePath = yield ioUtil.tryGetExecutablePath(path.join(directory, tool), extensions);
 	            if (filePath) {
 	                matches.push(filePath);
 	            }
@@ -28554,7 +28586,7 @@ function requireToolrunner () {
 	const os = __importStar(os__default);
 	const events = __importStar(events$1);
 	const child$1 = __importStar(child);
-	const path$1 = __importStar(path);
+	const path = __importStar(path__default);
 	const io = __importStar(requireIo());
 	const ioUtil = __importStar(requireIoUtil());
 	const timers_1 = require$$6$1;
@@ -28909,7 +28941,7 @@ function requireToolrunner () {
 	                (this.toolPath.includes('/') ||
 	                    (IS_WINDOWS && this.toolPath.includes('\\')))) {
 	                // prefer options.cwd if it is specified, however options.cwd may also need to be rooted
-	                this.toolPath = path$1.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
+	                this.toolPath = path.resolve(process.cwd(), this.options.cwd || process.cwd(), this.toolPath);
 	            }
 	            // if the tool is only a file name, then resolve it from the PATH
 	            // otherwise verify it exists (add extension on Windows if necessary)
@@ -29383,6 +29415,28 @@ const parseEasUpdateJson = (rawJson) => {
     return Array.from(byGroup.values());
 };
 
+const defaultDeps = {
+    exec: execExports.exec,
+    addPath: addPath,
+    homeDir: homedir
+};
+const ensurePackageManager = async (pm, deps = defaultDeps) => {
+    if (pm === 'npm')
+        return;
+    const probe = await deps.exec(pm, ['--version'], {
+        silent: true,
+        ignoreReturnCode: true
+    });
+    if (probe === 0)
+        return;
+    if (pm === 'bun') {
+        await deps.exec('bash', ['-c', 'curl -fsSL https://bun.sh/install | bash']);
+        deps.addPath(`${deps.homeDir()}/.bun/bin`);
+        return;
+    }
+    await deps.exec('npm', ['install', '-g', pm]);
+};
+
 const PRIORITY = [
     {
         file: 'bun.lock',
@@ -29433,6 +29487,7 @@ const run = async () => {
     const dryRun = process.env.STAGEHAND_DRY_RUN === 'true';
     const pm = detectPackageManager(workspace);
     info(`Detected package manager: ${pm.name}`);
+    await ensurePackageManager(pm.name);
     await execExports.exec(pm.name, [...pm.installArgs], { cwd: workspace });
     let expoToken;
     try {

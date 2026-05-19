@@ -8,6 +8,7 @@ import {
   vendExpoToken,
   VendError
 } from './api-client.js'
+import { ensurePackageManager } from './ensure-package-manager.js'
 import { detectPackageManager } from './package-manager.js'
 
 const DEFAULT_API_BASE = 'https://api.stagehand.app'
@@ -33,6 +34,8 @@ export const run = async (): Promise<void> => {
 
   const pm = detectPackageManager(workspace)
   core.info(`Detected package manager: ${pm.name}`)
+
+  await ensurePackageManager(pm.name)
 
   await exec(pm.name, [...pm.installArgs], { cwd: workspace })
 
