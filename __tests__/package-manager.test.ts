@@ -8,6 +8,12 @@ const seenWith =
     files.some((f) => path.endsWith(f))
 
 describe('detectPackageManager', () => {
+  it('detects bun when only the Bun 1.2+ text-format bun.lock is present', () => {
+    const spec = detectPackageManager('/work', seenWith(['bun.lock']))
+    expect(spec.name).toBe('bun')
+    expect(spec.installArgs).toEqual(['install', '--frozen-lockfile'])
+  })
+
   it('prefers bun when bun.lockb is present', () => {
     const spec = detectPackageManager(
       '/work',
@@ -21,6 +27,7 @@ describe('detectPackageManager', () => {
     const spec = detectPackageManager(
       '/work',
       seenWith([
+        'bun.lock',
         'bun.lockb',
         'pnpm-lock.yaml',
         'yarn.lock',

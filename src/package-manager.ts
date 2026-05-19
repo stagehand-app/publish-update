@@ -13,6 +13,10 @@ const PRIORITY: ReadonlyArray<{
   spec: PackageManagerSpec
 }> = [
   {
+    file: 'bun.lock',
+    spec: { name: 'bun', installArgs: ['install', '--frozen-lockfile'] }
+  },
+  {
     file: 'bun.lockb',
     spec: { name: 'bun', installArgs: ['install', '--frozen-lockfile'] }
   },
