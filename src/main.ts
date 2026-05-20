@@ -26,6 +26,18 @@ const readInput = (name: string, opts: { required?: boolean } = {}): string => {
   return raw
 }
 
+export const resolveBranchName = (
+  env: NodeJS.ProcessEnv = process.env
+): string => {
+  const headRef = env.GITHUB_HEAD_REF ?? ''
+  if (headRef.length > 0) return headRef
+  const refName = env.GITHUB_REF_NAME ?? ''
+  if (refName.length > 0) return refName
+  throw new Error(
+    'Unable to resolve git branch — set GITHUB_REF_NAME or GITHUB_HEAD_REF'
+  )
+}
+
 export const run = async (): Promise<void> => {
   const checkoutRoot = process.env.GITHUB_WORKSPACE ?? process.cwd()
   const workingDirInput = readInput('working-directory')
@@ -61,13 +73,15 @@ export const run = async (): Promise<void> => {
   core.setSecret(expoToken)
 
   if (dryRun) {
-    core.info('STAGEHAND_DRY_RUN=true; skipping `eas update --auto`.')
+    core.info('STAGEHAND_DRY_RUN=true; skipping `eas update`.')
     return
   }
 
   const eventName = process.env.GITHUB_EVENT_NAME ?? ''
   const sha = process.env.GITHUB_SHA ?? ''
   const isDefaultBranch = eventName === 'push'
+  const branchName = resolveBranchName()
+  core.info(`Resolved branch name: ${branchName}`)
 
   const updateOutput = await getExecOutput(
     'npx',
@@ -75,7 +89,8 @@ export const run = async (): Promise<void> => {
       '--yes',
       'eas-cli@latest',
       'update',
-      '--auto',
+      '--branch',
+      branchName,
       '--non-interactive',
       '--json'
     ],
