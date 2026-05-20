@@ -38,12 +38,12 @@ export const run = async (): Promise<void> => {
   const stagehandToken = readInput('stagehand-token', { required: true })
   const dryRun = process.env.STAGEHAND_DRY_RUN === 'true'
 
-  const pm = detectPackageManager(workspace)
+  const pm = detectPackageManager(checkoutRoot)
   core.info(`Detected package manager: ${pm.name}`)
 
   await ensurePackageManager(pm.name)
 
-  await exec(pm.name, [...pm.installArgs], { cwd: workspace })
+  await exec(pm.name, [...pm.installArgs], { cwd: checkoutRoot })
 
   let expoToken: string
   try {

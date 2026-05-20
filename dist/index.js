@@ -29499,10 +29499,10 @@ const run = async () => {
     const projectId = readInput('project-id', { required: true });
     const stagehandToken = readInput('stagehand-token', { required: true });
     const dryRun = process.env.STAGEHAND_DRY_RUN === 'true';
-    const pm = detectPackageManager(workspace);
+    const pm = detectPackageManager(checkoutRoot);
     info(`Detected package manager: ${pm.name}`);
     await ensurePackageManager(pm.name);
-    await execExports.exec(pm.name, [...pm.installArgs], { cwd: workspace });
+    await execExports.exec(pm.name, [...pm.installArgs], { cwd: checkoutRoot });
     let expoToken;
     try {
         expoToken = await vendExpoToken({ apiBase, projectId, stagehandToken });
