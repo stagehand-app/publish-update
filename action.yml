@@ -1,5 +1,5 @@
 name: 'Stagehand: publish update'
-description: Vend a scoped EXPO_TOKEN from Stagehand, run `eas update --auto`, and report the resulting update group(s) back to Stagehand.
+description: Vend a scoped EXPO_TOKEN from Stagehand, run `eas update --branch <resolved> --message <commit subject>`, and report the resulting update group(s) back to Stagehand.
 author: Stagehand
 
 branding:
@@ -19,6 +19,9 @@ inputs:
     default: https://api.stagehand.app
   working-directory:
     description: Subdirectory of the repo (relative to the checkout root) where the EAS project lives. Use this for monorepos where app.json/eas.json sit under e.g. apps/mobile. Defaults to the checkout root.
+    required: false
+  message:
+    description: Message attached to the EAS update. Defaults to the latest commit's subject line; pass this input to override.
     required: false
 
 runs:

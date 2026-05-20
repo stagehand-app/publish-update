@@ -29497,6 +29497,39 @@ const resolveBranchName = (env = process.env) => {
         return refName;
     throw new Error('Unable to resolve git branch — set GITHUB_REF_NAME or GITHUB_HEAD_REF');
 };
+const MESSAGE_MAX_LENGTH = 1024;
+const truncateMessage = (raw) => {
+    const cleaned = raw.replace(/\s+/g, ' ').trim();
+    return cleaned.length > MESSAGE_MAX_LENGTH
+        ? cleaned.slice(0, MESSAGE_MAX_LENGTH)
+        : cleaned;
+};
+const resolveUpdateMessage = async (opts) => {
+    const inputMessage = truncateMessage(opts.inputMessage);
+    if (inputMessage.length > 0)
+        return inputMessage;
+    const readGitSubject = opts.gitSubject ??
+        (async () => {
+            const result = await execExports.getExecOutput('git', ['log', '-1', '--pretty=%s'], {
+                cwd: opts.checkoutRoot,
+                silent: true,
+                ignoreReturnCode: true
+            });
+            return result.exitCode === 0 ? result.stdout : '';
+        });
+    try {
+        const subject = truncateMessage(await readGitSubject());
+        if (subject.length > 0)
+            return subject;
+    }
+    catch {
+        // fall through to SHA fallback
+    }
+    const sha = opts.sha.trim();
+    if (sha.length > 0)
+        return `Update ${sha.slice(0, 7)}`;
+    return 'Stagehand update';
+};
 const run = async () => {
     const checkoutRoot = process.env.GITHUB_WORKSPACE ?? process.cwd();
     const workingDirInput = readInput('working-directory');
@@ -29533,12 +29566,20 @@ const run = async () => {
     const isDefaultBranch = eventName === 'push';
     const branchName = resolveBranchName();
     info(`Resolved branch name: ${branchName}`);
+    const updateMessage = await resolveUpdateMessage({
+        inputMessage: readInput('message'),
+        checkoutRoot,
+        sha
+    });
+    info(`Update message: ${updateMessage}`);
     const updateOutput = await execExports.getExecOutput('npx', [
         '--yes',
         'eas-cli@latest',
         'update',
         '--branch',
         branchName,
+        '--message',
+        updateMessage,
         '--non-interactive',
         '--json'
     ], { cwd: workspace, env: { ...process.env, EXPO_TOKEN: expoToken } });

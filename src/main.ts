@@ -38,6 +38,47 @@ export const resolveBranchName = (
   )
 }
 
+const MESSAGE_MAX_LENGTH = 1024
+
+const truncateMessage = (raw: string): string => {
+  const cleaned = raw.replace(/\s+/g, ' ').trim()
+  return cleaned.length > MESSAGE_MAX_LENGTH
+    ? cleaned.slice(0, MESSAGE_MAX_LENGTH)
+    : cleaned
+}
+
+export const resolveUpdateMessage = async (opts: {
+  inputMessage: string
+  checkoutRoot: string
+  sha: string
+  gitSubject?: () => Promise<string>
+}): Promise<string> => {
+  const inputMessage = truncateMessage(opts.inputMessage)
+  if (inputMessage.length > 0) return inputMessage
+
+  const readGitSubject =
+    opts.gitSubject ??
+    (async () => {
+      const result = await getExecOutput('git', ['log', '-1', '--pretty=%s'], {
+        cwd: opts.checkoutRoot,
+        silent: true,
+        ignoreReturnCode: true
+      })
+      return result.exitCode === 0 ? result.stdout : ''
+    })
+
+  try {
+    const subject = truncateMessage(await readGitSubject())
+    if (subject.length > 0) return subject
+  } catch {
+    // fall through to SHA fallback
+  }
+
+  const sha = opts.sha.trim()
+  if (sha.length > 0) return `Update ${sha.slice(0, 7)}`
+  return 'Stagehand update'
+}
+
 export const run = async (): Promise<void> => {
   const checkoutRoot = process.env.GITHUB_WORKSPACE ?? process.cwd()
   const workingDirInput = readInput('working-directory')
@@ -82,6 +123,12 @@ export const run = async (): Promise<void> => {
   const isDefaultBranch = eventName === 'push'
   const branchName = resolveBranchName()
   core.info(`Resolved branch name: ${branchName}`)
+  const updateMessage = await resolveUpdateMessage({
+    inputMessage: readInput('message'),
+    checkoutRoot,
+    sha
+  })
+  core.info(`Update message: ${updateMessage}`)
 
   const updateOutput = await getExecOutput(
     'npx',
@@ -91,6 +138,8 @@ export const run = async (): Promise<void> => {
       'update',
       '--branch',
       branchName,
+      '--message',
+      updateMessage,
       '--non-interactive',
       '--json'
     ],
