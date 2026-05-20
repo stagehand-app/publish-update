@@ -35,7 +35,7 @@ import child from 'child_process';
 import require$$6$1 from 'timers';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, isAbsolute, resolve } from 'node:path';
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29467,6 +29467,15 @@ const detectPackageManager = (workspace, fileExists = existsSync) => {
     return { name: 'npm', installArgs: ['install'] };
 };
 
+const resolveWorkspace = (checkoutRoot, workingDirInput) => {
+    const trimmed = (workingDirInput ?? '').trim();
+    if (!trimmed)
+        return checkoutRoot;
+    if (isAbsolute(trimmed))
+        return trimmed;
+    return resolve(checkoutRoot, trimmed);
+};
+
 const DEFAULT_API_BASE = 'https://api.stagehand.app';
 const readInput = (name, opts = {}) => {
     if (process.env.GITHUB_ACTIONS === 'true') {
@@ -29480,7 +29489,12 @@ const readInput = (name, opts = {}) => {
     return raw;
 };
 const run = async () => {
-    const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
+    const checkoutRoot = process.env.GITHUB_WORKSPACE ?? process.cwd();
+    const workingDirInput = readInput('working-directory');
+    const workspace = resolveWorkspace(checkoutRoot, workingDirInput);
+    if (workspace !== checkoutRoot) {
+        info(`Using working directory: ${workspace}`);
+    }
     const apiBase = readInput('stagehand-api-base') || DEFAULT_API_BASE;
     const projectId = readInput('project-id', { required: true });
     const stagehandToken = readInput('stagehand-token', { required: true });

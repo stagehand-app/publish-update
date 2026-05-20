@@ -10,6 +10,7 @@ import {
 } from './api-client.js'
 import { ensurePackageManager } from './ensure-package-manager.js'
 import { detectPackageManager } from './package-manager.js'
+import { resolveWorkspace } from './workspace.js'
 
 const DEFAULT_API_BASE = 'https://api.stagehand.app'
 
@@ -26,7 +27,12 @@ const readInput = (name: string, opts: { required?: boolean } = {}): string => {
 }
 
 export const run = async (): Promise<void> => {
-  const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()
+  const checkoutRoot = process.env.GITHUB_WORKSPACE ?? process.cwd()
+  const workingDirInput = readInput('working-directory')
+  const workspace = resolveWorkspace(checkoutRoot, workingDirInput)
+  if (workspace !== checkoutRoot) {
+    core.info(`Using working directory: ${workspace}`)
+  }
   const apiBase = readInput('stagehand-api-base') || DEFAULT_API_BASE
   const projectId = readInput('project-id', { required: true })
   const stagehandToken = readInput('stagehand-token', { required: true })

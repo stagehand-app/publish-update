@@ -17,6 +17,9 @@ inputs:
     description: Override the Stagehand API base URL. Defaults to https://api.stagehand.app.
     required: false
     default: https://api.stagehand.app
+  working-directory:
+    description: Subdirectory of the repo (relative to the checkout root) where the EAS project lives. Use this for monorepos where app.json/eas.json sit under e.g. apps/mobile. Defaults to the checkout root.
+    required: false
 
 runs:
   using: node24
